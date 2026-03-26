@@ -1,7 +1,7 @@
 // src/pages/Login.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import API from '../api/api'
 
 export default function Login() {
   const [username, setUsername] = useState('')
@@ -16,12 +16,13 @@ export default function Login() {
     try {
       // Call FastAPI directly so local dev doesn't depend on Vite proxy config.
       // Backend expects: { username, password }
-      const res = await axios.post('http://127.0.0.1:8000/auth/login', { username, password })
+      const res = await API.post('/auth/login', { username, password })
 
       // On success, FastAPI returns an access token (and we also include role).
-      localStorage.setItem('token', res.data.access_token)
-      localStorage.setItem('role',  res.data.role)
-      navigate('/')
+      localStorage.setItem('token',    res.data.access_token)
+      localStorage.setItem('role',     res.data.role)
+      localStorage.setItem('username', username)
+      navigate('/homepage')
     } catch (err) {
       setError(err.response?.data?.detail || err.response?.data?.message || 'Login failed. Please try again.')
     }
@@ -53,6 +54,13 @@ export default function Login() {
           type="submit"
         >
           Login
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate('/register')}
+        >
+          Register
         </button>
       </form>
 

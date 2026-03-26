@@ -15,7 +15,7 @@ def register_user(user):
         "username": user.username,
         "email": user.email,
         "password": hashed_password,
-        "role": user.role,
+        "role": "user",
         "activitylog": []
     }
 

@@ -11,8 +11,10 @@ class User(BaseModel):
     email: EmailStr
     role: str
 
-class UserCreate(User):
-    # Registration payload includes credentials plus basic profile fields.
+class UserCreate(BaseModel):
+    # Registration payload — role is intentionally excluded so the client cannot set it.
+    username: str
+    email: EmailStr
     password: str
 
 class UserLogin(BaseModel):
