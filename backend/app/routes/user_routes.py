@@ -17,9 +17,3 @@ def login(user: UserLogin):
 @router.post("/logout")
 def logout(current_user: dict = Depends(get_current_user), token: str = Depends(oauth2_scheme)):
     return logout_user(token, current_user["username"])
-
-'''# Example protected route
-@router.get("/profile")
-def profile(current_user: dict = Depends(get_current_user)):
-    add_activity(current_user["userid"], "Viewed profile")
-    return current_user'''

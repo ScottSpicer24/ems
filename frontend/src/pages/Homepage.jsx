@@ -20,6 +20,7 @@ export default function Homepage() {
     const [submitting, setSubmitting] = useState(false)
     const [loggingOut, setLoggingOut] = useState(false)
     const username = localStorage.getItem('username') || 'Unknown'
+    const role = localStorage.getItem('role')
     const navigate = useNavigate()
 
     const handleLogout = async () => {
@@ -89,9 +90,11 @@ export default function Homepage() {
                     <p className="welcome-text">Logged in as <strong>{username}</strong></p>
                 </div>
                 <div className="header-actions">
-                    <button className="btn btn-primary" onClick={openModal}>
-                        + Add Employee
-                    </button>
+                    {role === 'admin' && (
+                        <button className="btn btn-primary" onClick={openModal}>
+                            + Add Employee
+                        </button>
+                    )}
                     <button
                         className="btn btn-danger"
                         onClick={handleLogout}

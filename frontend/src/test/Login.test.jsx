@@ -11,14 +11,18 @@ import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Login from '../pages/Login'
 
-// ─── 1. MOCK AXIOS ───────────────────────────────────────────────────────────
+// ─── 1. MOCK API MODULE ──────────────────────────────────────────────────────
 //
-// We mock the entire axios module so no real HTTP requests are made.
+// We mock the API module (an axios instance) so no real HTTP requests are made.
 // vi.mock() is hoisted to the top of the file by Vitest automatically,
 // so it always runs before imports — no ordering issues.
 //
-vi.mock('axios')
-import axios from 'axios'
+const { mockPost } = vi.hoisted(() => ({
+  mockPost: vi.fn(),
+}))
+vi.mock('../api/api', () => ({
+  default: { post: mockPost },
+}))
 
 // ─── 2. MOCK REACT-ROUTER useNavigate ────────────────────────────────────────
 //
@@ -96,7 +100,7 @@ describe('Login Page', () => {
     it('renders the submit button', () => {
       renderLogin()
       // getByRole('button') finds <button> elements; { name } matches button text
-      const submitButton = screen.getByRole('button', { name: /login/i })
+      const submitButton = screen.getByRole('button', { name: /sign in/i })
       expect(submitButton).toBeInTheDocument()
     })
 
@@ -116,7 +120,7 @@ describe('Login Page', () => {
   // PURPOSE: Verify that required fields prevent form submission when empty.
   //
   // We use the HTML5 `required` attribute on inputs, so the browser blocks
-  // submission natively. We assert the axios.post was never called.
+  // submission natively. We assert the mockPost was never called.
   //
   describe('Input Validation', () => {
     // Test 5: Does not submit the form when username is empty
@@ -126,10 +130,10 @@ describe('Login Page', () => {
 
       // Only fill in password — leave username blank
       await user.type(screen.getByLabelText(/password/i), 'user123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-      // axios.post should never have been called
-      expect(axios.post).not.toHaveBeenCalled()
+      // mockPost should never have been called
+      expect(mockPost).not.toHaveBeenCalled()
     })
 
     // Test 6: Does not submit the form when password is empty
@@ -139,9 +143,9 @@ describe('Login Page', () => {
 
       // Only fill in username — leave password blank
       await user.type(screen.getByLabelText(/username/i), 'user')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-      expect(axios.post).not.toHaveBeenCalled()
+      expect(mockPost).not.toHaveBeenCalled()
     })
 
     // Test 7: Does not submit the form when both fields are empty
@@ -149,9 +153,9 @@ describe('Login Page', () => {
       const user = userEvent.setup()
       renderLogin()
 
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
-      expect(axios.post).not.toHaveBeenCalled()
+      expect(mockPost).not.toHaveBeenCalled()
     })
 
     it('accepts typed values in the username and password fields', async () => {
@@ -172,15 +176,15 @@ describe('Login Page', () => {
   //
   // PURPOSE: Verify the error message appears when the API call fails.
   //
-  // axios.post.mockRejectedValueOnce() makes axios simulate a network/API error.
+  // mockPost.mockRejectedValueOnce() makes axios simulate a network/API error.
   // The error object must mirror what axios normally provides:
   //   err.response.data.message — the custom backend message
   //
   describe('Failed Login', () => {
 
     it('displays a server error message when login fails', async () => {
-      // Tell axios.post to reject with a 401-style error object
-      axios.post.mockRejectedValueOnce({
+      // Tell mockPost to reject with a 401-style error object
+      mockPost.mockRejectedValueOnce({
         response: { data: { message: 'Invalid credentials' } },
       })
 
@@ -189,7 +193,7 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'wrong_user')
       await user.type(screen.getByLabelText(/password/i), 'wrongpassword')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       // waitFor() keeps retrying the assertion until it passes or times out.
       // This is necessary because the error state update is async.
@@ -201,14 +205,14 @@ describe('Login Page', () => {
 
     it('displays a fallback error message when server returns no message', async () => {
       // Simulate a network error with no response body
-      axios.post.mockRejectedValueOnce(new Error('Network Error'))
+      mockPost.mockRejectedValueOnce(new Error('Network Error'))
 
       const user = userEvent.setup()
       renderLogin()
 
       await user.type(screen.getByLabelText(/username/i), 'user')
       await user.type(screen.getByLabelText(/password/i), 'user123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(
@@ -218,7 +222,7 @@ describe('Login Page', () => {
     })
 
     it('does not store anything in localStorage when login fails', async () => {
-      axios.post.mockRejectedValueOnce({
+      mockPost.mockRejectedValueOnce({
         response: { data: { message: 'Invalid credentials' } },
       })
 
@@ -227,7 +231,7 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'user')
       await user.type(screen.getByLabelText(/password/i), 'wrongpassword')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => screen.getByRole('alert'))
 
@@ -242,12 +246,12 @@ describe('Login Page', () => {
   // PURPOSE: Verify that on success, the JWT token and role are stored in
   // localStorage and the user is redirected to the home page.
   //
-  // axios.post.mockResolvedValueOnce() makes axios return a fake success response.
+  // mockPost.mockResolvedValueOnce() makes axios return a fake success response.
   //
   describe('Successful Login', () => {
 
-    it('calls axios.post with the correct endpoint and credentials', async () => {
-      axios.post.mockResolvedValueOnce({
+    it('calls API.post with the correct endpoint and credentials', async () => {
+      mockPost.mockResolvedValueOnce({
         data: { access_token: 'fake-jwt-token', role: 'admin' },
       })
 
@@ -256,10 +260,10 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'admin')
       await user.type(screen.getByLabelText(/password/i), 'password123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
-        expect(axios.post).toHaveBeenCalledWith('http://127.0.0.1:8000/auth/login', {
+        expect(mockPost).toHaveBeenCalledWith('/auth/login', {
           username: 'admin',
           password: 'password123',
         })
@@ -267,7 +271,7 @@ describe('Login Page', () => {
     })
 
     it('stores the JWT token in localStorage on successful login', async () => {
-      axios.post.mockResolvedValueOnce({
+      mockPost.mockResolvedValueOnce({
         data: { access_token: 'fake-jwt-token', role: 'admin' },
       })
 
@@ -276,7 +280,7 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'admin')
       await user.type(screen.getByLabelText(/password/i), 'password123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
         expect(localStorage.getItem('token')).toBe('fake-jwt-token')
@@ -284,7 +288,7 @@ describe('Login Page', () => {
     })
 
     it('stores the user role in localStorage on successful login', async () => {
-      axios.post.mockResolvedValueOnce({
+      mockPost.mockResolvedValueOnce({
         data: { access_token: 'fake-jwt-token', role: 'employee' },
       })
 
@@ -293,7 +297,7 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'emp_user')
       await user.type(screen.getByLabelText(/password/i), 'password123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
         expect(localStorage.getItem('role')).toBe('employee')
@@ -301,7 +305,7 @@ describe('Login Page', () => {
     })
 
     it('redirects to the home page after successful login', async () => {
-      axios.post.mockResolvedValueOnce({
+      mockPost.mockResolvedValueOnce({
         data: { access_token: 'fake-jwt-token', role: 'admin' },
       })
 
@@ -310,16 +314,16 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'admin')
       await user.type(screen.getByLabelText(/password/i), 'password123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       // mockNavigate is the vi.fn() spy we injected for useNavigate()
       await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/')
+        expect(mockNavigate).toHaveBeenCalledWith('/homepage')
       })
     })
 
     it('does not show an error message on successful login', async () => {
-      axios.post.mockResolvedValueOnce({
+      mockPost.mockResolvedValueOnce({
         data: { access_token: 'fake-jwt-token', role: 'admin' },
       })
 
@@ -328,7 +332,7 @@ describe('Login Page', () => {
 
       await user.type(screen.getByLabelText(/username/i), 'admin')
       await user.type(screen.getByLabelText(/password/i), 'password123')
-      await user.click(screen.getByRole('button', { name: /login/i }))
+      await user.click(screen.getByRole('button', { name: /sign in/i }))
 
       await waitFor(() => {
         expect(screen.queryByRole('alert')).not.toBeInTheDocument()
