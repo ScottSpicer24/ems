@@ -16,6 +16,16 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+# In-memory token blacklist; entries are cleared on server restart.
+# For multi-process / persistent blacklisting, move this to a Redis or MongoDB store.
+_token_blacklist: set[str] = set()
+
+def blacklist_token(token: str) -> None:
+    _token_blacklist.add(token)
+
+def is_token_blacklisted(token: str) -> bool:
+    return token in _token_blacklist
+
 # Password hashing
 def hash_password(password: str):
     return pwd_context.hash(password)
@@ -43,7 +53,13 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
     if not token:
         raise credentials_exception
-    
+
+    if is_token_blacklisted(token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked"
+        )
+
     try:
         payload = decode_token(token)
         username: str = payload.get("username")

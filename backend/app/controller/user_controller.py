@@ -1,5 +1,5 @@
 from app.model.user_model import create_user, get_user_by_username, add_activity
-from app.utils.utils import hash_password, verify_password, create_access_token
+from app.utils.utils import hash_password, verify_password, create_access_token, blacklist_token
 from fastapi import HTTPException
 
 # Register new user
@@ -15,7 +15,7 @@ def register_user(user):
         "username": user.username,
         "email": user.email,
         "password": hashed_password,
-        "role": "admin",
+        "role": "user",
         "activitylog": []
     }
 
@@ -42,3 +42,9 @@ def login_user(user):
 
     # Include role in response so the frontend can store it without decoding JWT.
     return {"access_token": token, "token_type": "bearer", "role": db_user["role"]}
+
+# Logout user — blacklists the supplied token so it can no longer be used
+def logout_user(token: str, username: str):
+    blacklist_token(token)
+    add_activity(username, "User logged out")
+    return {"message": "Logged out successfully"}

@@ -1,4 +1,3 @@
-// src/pages/Login.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import API from '../api/api'
@@ -7,64 +6,74 @@ export default function Login() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError]       = useState('')
+  const [loading, setLoading]   = useState(false)
   const navigate                = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
 
     try {
-      // Call FastAPI directly so local dev doesn't depend on Vite proxy config.
-      // Backend expects: { username, password }
       const res = await API.post('/auth/login', { username, password })
-
-      // On success, FastAPI returns an access token (and we also include role).
       localStorage.setItem('token',    res.data.access_token)
       localStorage.setItem('role',     res.data.role)
       localStorage.setItem('username', username)
       navigate('/homepage')
     } catch (err) {
       setError(err.response?.data?.detail || err.response?.data?.message || 'Login failed. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <div>
-      <h1>Employee Login</h1>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="username">Username</label>
-        <input
-          id="username"
-          type="text"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
+    <div className="auth-page">
+      <div className="auth-card">
+        <h1>Welcome back</h1>
+        <p className="auth-subtitle">Sign in to your account</p>
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        {error && (
+          <p role="alert" className="alert alert-error">{error}</p>
+        )}
 
-        <button
-          type="submit"
-        >
-          Login
-        </button>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="username">Username</label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Enter your username"
+              required
+            />
+          </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/register')}
-        >
-          Register
-        </button>
-      </form>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+            />
+          </div>
 
-      {error && <p role="alert">{error}</p>}
+          <button type="submit" className="btn btn-primary btn-full" disabled={loading}>
+            {loading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Don&apos;t have an account?{' '}
+          <button type="button" onClick={() => navigate('/register')}>
+            Register
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
