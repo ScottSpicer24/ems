@@ -1,6 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+from app.utils.utils import get_current_user
 
 '''
 This allows for more reusability of the test.
@@ -11,7 +12,9 @@ Reusing the same client instance for all test cases.
 
 @pytest.fixture
 def client():
-    return TestClient(app)
+    app.dependency_overrides[get_current_user] = lambda: {"username": "admin", "role": "admin"}
+    yield TestClient(app)
+    app.dependency_overrides.clear()
 
 # Test case for GET all employees /employees endpoint
 def test_get_employees(client):
